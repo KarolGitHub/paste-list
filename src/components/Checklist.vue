@@ -76,6 +76,11 @@
         <label class="label" for="paste-area">Paste items</label>
         <textarea id="paste-area" v-model="activeDraft" placeholder="Milk&#10;Eggs&#10;Call the dentist" rows="4" />
         <div class="actions">
+          <label class="btn ghost" for="file-import">
+            Import .txt
+          </label>
+          <input id="file-import" ref="fileInputRef" class="file-input" type="file" accept=".txt,text/plain"
+            @change="importFromFile" />
           <button class="btn secondary" type="button" @click="clearAll">
             Clear list
           </button>
@@ -129,6 +134,7 @@ const LEGACY_KEY = "paste-checklist-items";
 const checklists = ref([]);
 const activeSectionRef = ref(null);
 const showModal = ref(false);
+const fileInputRef = ref(null);
 const activeId = ref(null);
 
 const newTitle = ref("");
@@ -262,6 +268,47 @@ const addItems = () => {
   activeDraft.value = "";
   activeSeparator.value = "newline";
   customActiveSeparator.value = "";
+};
+
+const importFromFile = (event) => {
+  const [file] = event.target.files || [];
+  if (!file || !activeChecklist.value) {
+    event.target.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = reader.result ?? "";
+    const parsed = parseBySeparator(
+      String(text),
+      activeSeparator.value,
+      customActiveSeparator.value
+    );
+    if (!parsed.length) {
+      event.target.value = "";
+      return;
+    }
+
+    const newItems = parsed.map((line) => ({
+      id: crypto.randomUUID(),
+      text: line,
+      done: false,
+    }));
+
+    updateChecklist(activeChecklist.value.id, (list) => ({
+      ...list,
+      items: [...list.items, ...newItems],
+    }));
+
+    activeSeparator.value = "newline";
+    customActiveSeparator.value = "";
+    event.target.value = "";
+  };
+  reader.onerror = () => {
+    event.target.value = "";
+  };
+  reader.readAsText(file);
 };
 
 const toggleItem = (id) => {
@@ -540,6 +587,12 @@ textarea {
   color: #0f172a;
 }
 
+.ghost {
+  background: #fff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
 .list-card {
   background: #ffffff;
 }
@@ -663,6 +716,10 @@ input[type="checkbox"] {
   border-radius: 14px;
   padding: 20px;
   background: #f8fafc;
+}
+
+.file-input {
+  display: none;
 }
 
 @media (max-width: 640px) {
