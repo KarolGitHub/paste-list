@@ -77,10 +77,13 @@
         <textarea id="paste-area" v-model="activeDraft" placeholder="Milk&#10;Eggs&#10;Call the dentist" rows="4" />
         <div class="actions">
           <label class="btn ghost" for="file-import">
-            Import .txt
+            Import .txt / .json
           </label>
-          <input id="file-import" ref="fileInputRef" class="file-input" type="file" accept=".txt,text/plain"
-            @change="importFromFile" />
+          <input id="file-import" ref="fileInputRef" class="file-input" type="file"
+            accept=".txt,text/plain,.json,application/json" @change="importFromFile" />
+          <button class="btn ghost" type="button" @click="exportJson">
+            Export JSON
+          </button>
           <button class="btn secondary" type="button" @click="clearAll">
             Clear list
           </button>
@@ -90,21 +93,22 @@
         </div>
       </div>
 
-      <div class="list-card" v-if="items.length">
-        <div class="summary">
-          <div>
-            <p class="count">{{ completedCount }} done</p>
-            <p class="count subtle">{{ remainingCount }} remaining</p>
-          </div>
-          <div class="summary-actions">
-            <button class="link" type="button" :disabled="!hasUndo" @click="undoLastAction">
-              Undo
-            </button>
-            <button class="link" type="button" @click="toggleAll(false)">
-              Uncheck all
-            </button>
-          </div>
+      <div class="summary">
+        <div>
+          <p class="count">{{ completedCount }} done</p>
+          <p class="count subtle">{{ remainingCount }} remaining</p>
         </div>
+        <div class="summary-actions">
+          <button class="link" type="button" :disabled="!hasUndo" @click="undoLastAction">
+            Undo
+          </button>
+          <button class="link" type="button" @click="toggleAll(false)">
+            Uncheck all
+          </button>
+        </div>
+      </div>
+
+      <div class="list-card" v-if="items.length">
 
         <ul class="list" role="list">
           <li v-for="item in items" :key="item.id" class="row" :data-id="item.id" :class="{
@@ -323,21 +327,51 @@ const importFromFile = (event) => {
 
   const reader = new FileReader();
   reader.onload = () => {
-    const text = reader.result ?? "";
-    const parsed = parseBySeparator(
-      String(text),
-      activeSeparator.value,
-      customActiveSeparator.value
-    );
-    if (!parsed.length) {
+    const raw = reader.result ?? "";
+    let parsedLines = [];
+    const isJsonFile =
+      file.type === "application/json" || file.name.toLowerCase().endsWith(".json");
+
+    if (isJsonFile) {
+      try {
+        const data = JSON.parse(raw);
+        const itemsArray = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.items)
+            ? data.items
+            : [];
+        parsedLines = itemsArray
+          .map((item) =>
+            typeof item === "string"
+              ? { text: item, done: false }
+              : item && typeof item.text === "string"
+                ? { text: item.text, done: !!item.done }
+                : null
+          )
+          .filter(Boolean);
+      } catch (err) {
+        console.error("Failed to parse JSON import", err);
+      }
+    }
+
+    if (!parsedLines.length) {
+      const parsedText = parseBySeparator(
+        String(raw),
+        activeSeparator.value,
+        customActiveSeparator.value
+      );
+      parsedLines = parsedText.map((line) => ({ text: line, done: false }));
+    }
+
+    if (!parsedLines.length) {
       event.target.value = "";
       return;
     }
 
-    const newItems = parsed.map((line) => ({
+    const newItems = parsedLines.map((entry) => ({
       id: crypto.randomUUID(),
-      text: line,
-      done: false,
+      text: entry.text,
+      done: !!entry.done,
     }));
 
     const targetId = activeChecklist.value.id;
@@ -370,6 +404,28 @@ const importFromFile = (event) => {
     event.target.value = "";
   };
   reader.readAsText(file);
+};
+
+const exportJson = () => {
+  if (!activeChecklist.value) return;
+  const payload = {
+    title: activeChecklist.value.title,
+    items: activeChecklist.value.items,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const title = (activeChecklist.value.title || "checklist")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9-_]/g, "")
+    .toLowerCase();
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${title || "checklist"}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 const toggleItem = (id) => {
