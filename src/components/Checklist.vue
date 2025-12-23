@@ -102,7 +102,16 @@
         </div>
 
         <ul class="list" role="list">
-          <li v-for="item in items" :key="item.id" class="row">
+          <li v-for="item in items" :key="item.id" class="row" :data-id="item.id" :class="{
+            dragging: dragSourceId === item.id,
+            'drop-target': dropTargetId === item.id,
+          }" @dragenter.prevent="onDragEnter(item.id)" @dragover.prevent @drop.prevent="finishDrop(item.id)">
+            <button class="drag-handle" type="button" aria-label="Reorder item" draggable="true"
+              @dragstart="startDrag(item.id, $event)" @dragend="cancelDrag"
+              @touchstart.prevent.stop="touchStart(item.id, $event)" @touchmove.prevent.stop="touchMove"
+              @touchend.prevent.stop="touchEnd">
+              ≡
+            </button>
             <label class="row-content">
               <input type="checkbox" :checked="item.done" @change="toggleItem(item.id)" />
               <span :class="['text', { done: item.done }]">{{ item.text }}</span>
@@ -135,6 +144,9 @@ const checklists = ref([]);
 const activeSectionRef = ref(null);
 const showModal = ref(false);
 const fileInputRef = ref(null);
+const dragSourceId = ref(null);
+const dropTargetId = ref(null);
+const touchDragId = ref(null);
 const activeId = ref(null);
 
 const newTitle = ref("");
@@ -351,6 +363,83 @@ const removeChecklist = (id) => {
   if (activeId.value === id) {
     activeId.value = checklists.value[0]?.id ?? null;
   }
+};
+
+const reorderItems = (sourceId, targetId) => {
+  if (!activeChecklist.value || sourceId === targetId) return;
+  const list = activeChecklist.value.items;
+  const from = list.findIndex((item) => item.id === sourceId);
+  const to = list.findIndex((item) => item.id === targetId);
+  if (from === -1 || to === -1) return;
+
+  const next = [...list];
+  const [moved] = next.splice(from, 1);
+  const insertIndex = from < to ? to - 1 : to;
+  next.splice(insertIndex, 0, moved);
+
+  updateChecklist(activeChecklist.value.id, (current) => ({
+    ...current,
+    items: next,
+  }));
+};
+
+const startDrag = (id, event) => {
+  dragSourceId.value = id;
+  dropTargetId.value = null;
+  event.dataTransfer?.setData("text/plain", id);
+  event.dataTransfer?.setDragImage?.(event.target, 10, 10);
+};
+
+const touchStart = (id, event) => {
+  touchDragId.value = id;
+  dragSourceId.value = id;
+  dropTargetId.value = null;
+  if (event.target instanceof HTMLElement) {
+    event.target.style.touchAction = "none";
+  }
+};
+
+const touchMove = (event) => {
+  if (!touchDragId.value) return;
+  const touch = event.touches?.[0];
+  if (!touch) return;
+  const el = document.elementFromPoint(touch.clientX, touch.clientY);
+  const targetLi = el?.closest?.("li.row[data-id]");
+  if (targetLi) {
+    const targetId = targetLi.getAttribute("data-id");
+    if (targetId && targetId !== touchDragId.value) {
+      dropTargetId.value = targetId;
+    }
+  }
+};
+
+const touchEnd = () => {
+  if (touchDragId.value && dropTargetId.value) {
+    reorderItems(touchDragId.value, dropTargetId.value);
+  }
+  touchDragId.value = null;
+  dragSourceId.value = null;
+  dropTargetId.value = null;
+};
+
+const onDragEnter = (id) => {
+  if (!dragSourceId.value || dragSourceId.value === id) {
+    dropTargetId.value = null;
+    return;
+  }
+  dropTargetId.value = id;
+};
+
+const finishDrop = (id) => {
+  if (!dragSourceId.value) return;
+  reorderItems(dragSourceId.value, id);
+  dragSourceId.value = null;
+  dropTargetId.value = null;
+};
+
+const cancelDrag = () => {
+  dragSourceId.value = null;
+  dropTargetId.value = null;
 };
 
 const ensureDefault = () => {
@@ -632,12 +721,38 @@ textarea {
   padding: 10px 12px;
 }
 
+.row.dragging {
+  opacity: 0.5;
+}
+
+.row.drop-target {
+  outline: 2px dashed #2563eb;
+}
+
 .row-content {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   cursor: pointer;
+}
+
+.drag-handle {
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 input[type="checkbox"] {
@@ -730,6 +845,11 @@ input[type="checkbox"] {
 
   .row {
     align-items: flex-start;
+  }
+
+  .drag-handle {
+    width: 28px;
+    height: 28px;
   }
 }
 
