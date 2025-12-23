@@ -56,6 +56,21 @@
       </div>
     </div>
 
+    <div v-if="showCelebration" class="modal-backdrop celebration-backdrop" @click.self="closeCelebration"
+      @touchstart.self="closeCelebration">
+      <div class="celebration-card">
+        <div class="confetti">
+          <span v-for="n in 30" :key="n"></span>
+        </div>
+        <div class="celebration-content">
+          <p class="eyebrow">All done!</p>
+          <h2>Merry Christmas 🎄</h2>
+          <p class="lede">You checked off every item in this checklist.</p>
+          <button class="btn primary" type="button" @click="closeCelebration">Nice!</button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="activeChecklist" class="active-section" ref="activeSectionRef">
       <div class="input-card">
         <label class="label" for="active-title">Checklist title</label>
@@ -159,6 +174,8 @@ const touchDragId = ref(null);
 const actionStack = ref([]);
 const ACTION_LIMIT = 10;
 const activeId = ref(null);
+const showCelebration = ref(false);
+const celebratedMap = ref({});
 
 const newTitle = ref("");
 const newDraft = ref("");
@@ -221,6 +238,11 @@ const activeTitle = computed({
 
 const doneCount = (list) => list.items.filter((item) => item.done).length;
 const hasUndo = computed(() => actionStack.value.length > 0);
+const allDone = computed(
+  () =>
+    !!items.value.length &&
+    items.value.every((item) => item.done)
+);
 
 const pushAction = (action) => {
   actionStack.value = [...actionStack.value.slice(-(ACTION_LIMIT - 1)), action];
@@ -251,6 +273,10 @@ const openModal = () => {
 
 const closeModal = () => {
   showModal.value = false;
+};
+
+const closeCelebration = () => {
+  showCelebration.value = false;
 };
 
 const updateChecklist = (id, updater) => {
@@ -691,6 +717,30 @@ watch(
   },
   { deep: true }
 );
+
+watch(
+  [items, activeId],
+  () => {
+    const id = activeId.value;
+    if (!id) return;
+    const completed = allDone.value;
+    const map = { ...celebratedMap.value };
+
+    if (completed) {
+      if (!map[id]) {
+        map[id] = true;
+        celebratedMap.value = map;
+        showCelebration.value = true;
+      }
+    } else {
+      if (map[id]) {
+        map[id] = false;
+        celebratedMap.value = map;
+      }
+    }
+  },
+  { deep: true }
+);
 </script>
 
 <style scoped>
@@ -1005,6 +1055,205 @@ input[type="checkbox"] {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.celebration-backdrop {
+  background: radial-gradient(circle at 20% 20%, rgba(236, 72, 153, 0.25), transparent),
+    radial-gradient(circle at 80% 10%, rgba(59, 130, 246, 0.25), transparent),
+    radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.25), transparent),
+    rgba(15, 23, 42, 0.35);
+}
+
+.celebration-card {
+  position: relative;
+  overflow: hidden;
+  width: min(520px, 100%);
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  color: #fff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+}
+
+.celebration-content h2 {
+  margin: 0 0 8px 0;
+}
+
+.celebration-content .lede {
+  color: #cbd5e1;
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti span {
+  position: absolute;
+  width: 10px;
+  height: 14px;
+  background: var(--confetti-color, #fbbf24);
+  top: -20px;
+  left: 50%;
+  animation: fall 1.8s linear infinite;
+  transform: translateX(-50%);
+  opacity: 0.9;
+}
+
+.confetti span:nth-child(4n) {
+  --confetti-color: #f472b6;
+}
+
+.confetti span:nth-child(4n + 1) {
+  --confetti-color: #38bdf8;
+}
+
+.confetti span:nth-child(4n + 2) {
+  --confetti-color: #a3e635;
+}
+
+.confetti span:nth-child(4n + 3) {
+  --confetti-color: #fcd34d;
+}
+
+.confetti span:nth-child(n) {
+  left: calc(3% * var(--i, 1));
+  animation-delay: calc(0.05s * var(--i, 1));
+}
+
+.confetti span {
+  --i: 1;
+}
+
+.confetti span:nth-child(1) {
+  --i: 1;
+}
+
+.confetti span:nth-child(2) {
+  --i: 2;
+}
+
+.confetti span:nth-child(3) {
+  --i: 3;
+}
+
+.confetti span:nth-child(4) {
+  --i: 4;
+}
+
+.confetti span:nth-child(5) {
+  --i: 5;
+}
+
+.confetti span:nth-child(6) {
+  --i: 6;
+}
+
+.confetti span:nth-child(7) {
+  --i: 7;
+}
+
+.confetti span:nth-child(8) {
+  --i: 8;
+}
+
+.confetti span:nth-child(9) {
+  --i: 9;
+}
+
+.confetti span:nth-child(10) {
+  --i: 10;
+}
+
+.confetti span:nth-child(11) {
+  --i: 11;
+}
+
+.confetti span:nth-child(12) {
+  --i: 12;
+}
+
+.confetti span:nth-child(13) {
+  --i: 13;
+}
+
+.confetti span:nth-child(14) {
+  --i: 14;
+}
+
+.confetti span:nth-child(15) {
+  --i: 15;
+}
+
+.confetti span:nth-child(16) {
+  --i: 16;
+}
+
+.confetti span:nth-child(17) {
+  --i: 17;
+}
+
+.confetti span:nth-child(18) {
+  --i: 18;
+}
+
+.confetti span:nth-child(19) {
+  --i: 19;
+}
+
+.confetti span:nth-child(20) {
+  --i: 20;
+}
+
+.confetti span:nth-child(21) {
+  --i: 21;
+}
+
+.confetti span:nth-child(22) {
+  --i: 22;
+}
+
+.confetti span:nth-child(23) {
+  --i: 23;
+}
+
+.confetti span:nth-child(24) {
+  --i: 24;
+}
+
+.confetti span:nth-child(25) {
+  --i: 25;
+}
+
+.confetti span:nth-child(26) {
+  --i: 26;
+}
+
+.confetti span:nth-child(27) {
+  --i: 27;
+}
+
+.confetti span:nth-child(28) {
+  --i: 28;
+}
+
+.confetti span:nth-child(29) {
+  --i: 29;
+}
+
+.confetti span:nth-child(30) {
+  --i: 30;
+}
+
+@keyframes fall {
+  0% {
+    transform: translate3d(var(--x, 0), -10px, 0) rotate(0deg);
+  }
+
+  100% {
+    transform: translate3d(var(--x, 0), 110vh, 0) rotate(360deg);
+  }
 }
 
 .link {
