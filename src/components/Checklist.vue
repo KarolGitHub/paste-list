@@ -1062,17 +1062,22 @@ input[type="checkbox"] {
     radial-gradient(circle at 80% 10%, rgba(59, 130, 246, 0.25), transparent),
     radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.25), transparent),
     rgba(15, 23, 42, 0.35);
+  padding: 0;
 }
 
 .celebration-card {
   position: relative;
   overflow: hidden;
-  width: min(520px, 100%);
+  width: 100%;
+  height: 100%;
   background: linear-gradient(135deg, #0f172a, #1e293b);
   color: #fff;
-  border-radius: 18px;
-  padding: 24px;
+  border-radius: 0;
+  padding: 32px;
   box-shadow: 0 25px 60px rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .celebration-content h2 {
