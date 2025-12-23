@@ -15,7 +15,18 @@
       <div class="new-card">
         <label class="label" for="title-input">New checklist title</label>
         <input id="title-input" v-model="newTitle" class="text-input" type="text" placeholder="Sprint prep" />
-        <label class="label" for="seed-area">Seed items (optional, one per line)</label>
+        <div class="inline-inputs">
+          <label class="label" for="seed-sep">Separator</label>
+          <select id="seed-sep" v-model="newSeparator" class="select-input">
+            <option value="newline">New line (default)</option>
+            <option value="comma">Comma</option>
+            <option value="semicolon">Semicolon</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input v-if="newSeparator === 'custom'" v-model="customNewSeparator" class="text-input compact" type="text"
+            maxlength="5" placeholder="|" />
+        </div>
+        <label class="label" for="seed-area">Seed items (optional)</label>
         <textarea id="seed-area" v-model="newDraft" placeholder="Write agenda&#10;Send invites&#10;Book room"
           rows="3" />
         <button class="btn primary full" type="button" @click="createChecklist">
@@ -30,7 +41,18 @@
         <input id="active-title" v-model="activeTitle" class="text-input" type="text"
           placeholder="Untitled checklist" />
 
-        <label class="label" for="paste-area">Paste items (one per line)</label>
+        <div class="inline-inputs">
+          <label class="label" for="active-sep">Separator</label>
+          <select id="active-sep" v-model="activeSeparator" class="select-input">
+            <option value="newline">New line (default)</option>
+            <option value="comma">Comma</option>
+            <option value="semicolon">Semicolon</option>
+            <option value="custom">Custom</option>
+          </select>
+          <input v-if="activeSeparator === 'custom'" v-model="customActiveSeparator" class="text-input compact"
+            type="text" maxlength="5" placeholder="|" />
+        </div>
+        <label class="label" for="paste-area">Paste items</label>
         <textarea id="paste-area" v-model="activeDraft" placeholder="Milk&#10;Eggs&#10;Call the dentist" rows="4" />
         <div class="actions">
           <button class="btn secondary" type="button" @click="clearAll">
@@ -88,20 +110,38 @@ const activeId = ref(null);
 
 const newTitle = ref("");
 const newDraft = ref("");
+const newSeparator = ref("newline");
+const customNewSeparator = ref("");
+
 const activeDraft = ref("");
+const activeSeparator = ref("newline");
+const customActiveSeparator = ref("");
+
+const parseBySeparator = (text, separator, custom) => {
+  const trimmedCustom = custom.trim();
+  const sep =
+    separator === "custom" && trimmedCustom
+      ? trimmedCustom
+      : separator === "comma"
+        ? ","
+        : separator === "semicolon"
+          ? ";"
+          : "\n";
+
+  const parts =
+    sep === "\n"
+      ? text.split(/\r?\n/)
+      : text.split(sep);
+
+  return parts.map((line) => line.trim()).filter(Boolean);
+};
 
 const parsedNewDraft = computed(() =>
-  newDraft.value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
+  parseBySeparator(newDraft.value, newSeparator.value, customNewSeparator.value)
 );
 
 const parsedActiveDraft = computed(() =>
-  activeDraft.value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean)
+  parseBySeparator(activeDraft.value, activeSeparator.value, customActiveSeparator.value)
 );
 
 const activeChecklist = computed(() =>
@@ -156,6 +196,8 @@ const createChecklist = () => {
   activeId.value = id;
   newTitle.value = "";
   newDraft.value = "";
+  newSeparator.value = "newline";
+  customNewSeparator.value = "";
   activeDraft.value = "";
 };
 
@@ -174,6 +216,8 @@ const addItems = () => {
   }));
 
   activeDraft.value = "";
+  activeSeparator.value = "newline";
+  customActiveSeparator.value = "";
 };
 
 const toggleItem = (id) => {
@@ -346,6 +390,12 @@ watch(
   gap: 8px;
 }
 
+.inline-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .input-card,
 .list-card {
   border: 1px solid #e2e8f0;
@@ -366,6 +416,7 @@ watch(
 }
 
 .text-input,
+.select-input,
 textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
@@ -373,6 +424,10 @@ textarea {
   padding: 10px 12px;
   font: inherit;
   background: #fff;
+}
+
+.text-input.compact {
+  max-width: 90px;
 }
 
 textarea {

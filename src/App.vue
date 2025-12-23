@@ -2,16 +2,6 @@
   <main class="shell">
     <header class="header">
       <div>
-        <p class="eyebrow">Vue 3 · Interactive Checklists</p>
-        <h1>Paste lists, title them, and start checking off items</h1>
-        <p class="lede">
-          Each line becomes a checklist item. Everything is saved locally so you
-          can come back later.
-        </p>
-      </div>
-      <div class="badges">
-        <span class="badge">Vue 3</span>
-        <span class="badge">LocalStorage</span>
       </div>
     </header>
 
@@ -27,7 +17,7 @@ import Checklist from "./components/Checklist.vue";
 .shell {
   width: min(1100px, 100%);
   background: #ffffff;
-  padding: 32px;
+  padding: 10px;
   border-radius: 18px;
   box-shadow: 0 25px 70px rgba(15, 23, 42, 0.08);
 }
@@ -84,4 +74,3 @@ h1 {
   }
 }
 </style>
-
