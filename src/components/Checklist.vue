@@ -1,19 +1,33 @@
 <template>
   <section class="panel">
     <div class="manager">
-      <div class="tabs" v-if="checklists.length">
-        <div v-for="list in checklists" :key="list.id" class="tab" :class="{ active: list.id === activeId }"
-          role="button" tabindex="0" @click="setActive(list.id)" @keydown.enter.prevent="setActive(list.id)"
-          @keydown.space.prevent="setActive(list.id)">
-          <span class="tab-title">{{ list.title || "Untitled" }}</span>
-          <span class="tab-count">{{ doneCount(list) }}/{{ list.items.length }}</span>
-          <button class="tab-remove" type="button" @click.stop="removeChecklist(list.id)">
-            ✕
-          </button>
+      <div class="tab-bar" v-if="checklists.length">
+        <div class="tabs">
+          <div v-for="list in checklists" :key="list.id" class="tab" :class="{ active: list.id === activeId }"
+            role="button" tabindex="0" @click="setActive(list.id)" @keydown.enter.prevent="setActive(list.id)"
+            @keydown.space.prevent="setActive(list.id)">
+            <span class="tab-title">{{ list.title || "Untitled" }}</span>
+            <span class="tab-count">{{ doneCount(list) }}/{{ list.items.length }}</span>
+            <button class="tab-remove" type="button" @click.stop="removeChecklist(list.id)">
+              ✕
+            </button>
+          </div>
         </div>
+        <button class="btn primary add-btn" type="button" @click="openModal">New checklist</button>
       </div>
-      <div class="new-card">
-        <label class="label" for="title-input">New checklist title</label>
+      <div v-else class="empty-bar">
+        <p>No checklists yet.</p>
+        <button class="btn primary add-btn" type="button" @click="openModal">Create one</button>
+      </div>
+    </div>
+
+    <div v-if="showModal" class="modal-backdrop" @click.self="closeModal" @touchstart.self="closeModal">
+      <div class="modal">
+        <div class="modal-head">
+          <h3>Create checklist</h3>
+          <button class="icon-btn" type="button" @click="closeModal">✕</button>
+        </div>
+        <label class="label" for="title-input">Title</label>
         <input id="title-input" v-model="newTitle" class="text-input" type="text" placeholder="Sprint prep" />
         <div class="inline-inputs">
           <label class="label" for="seed-sep">Separator</label>
@@ -29,13 +43,16 @@
         <label class="label" for="seed-area">Seed items (optional)</label>
         <textarea id="seed-area" v-model="newDraft" placeholder="Write agenda&#10;Send invites&#10;Book room"
           rows="3" />
-        <button class="btn primary full" type="button" @click="createChecklist">
-          Add checklist
-        </button>
+        <div class="modal-actions">
+          <button class="btn secondary" type="button" @click="closeModal">Cancel</button>
+          <button class="btn primary" type="button" @click="createChecklist">
+            Add checklist
+          </button>
+        </div>
       </div>
     </div>
 
-    <div v-if="activeChecklist" class="active-section">
+    <div v-if="activeChecklist" class="active-section" ref="activeSectionRef">
       <div class="input-card">
         <label class="label" for="active-title">Checklist title</label>
         <input id="active-title" v-model="activeTitle" class="text-input" type="text"
@@ -100,12 +117,14 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 const STORAGE_KEY = "paste-checklists";
 const LEGACY_KEY = "paste-checklist-items";
 
 const checklists = ref([]);
+const activeSectionRef = ref(null);
+const showModal = ref(false);
 const activeId = ref(null);
 
 const newTitle = ref("");
@@ -169,8 +188,28 @@ const activeTitle = computed({
 
 const doneCount = (list) => list.items.filter((item) => item.done).length;
 
+const scrollToActive = () => {
+  nextTick(() => {
+    const el = activeSectionRef.value;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  });
+};
+
 const setActive = (id) => {
   activeId.value = id;
+  scrollToActive();
+};
+
+const openModal = () => {
+  showModal.value = true;
+};
+
+const closeModal = () => {
+  showModal.value = false;
 };
 
 const updateChecklist = (id, updater) => {
@@ -199,6 +238,7 @@ const createChecklist = () => {
   newSeparator.value = "newline";
   customNewSeparator.value = "";
   activeDraft.value = "";
+  closeModal();
 };
 
 const addItems = () => {
@@ -339,6 +379,13 @@ watch(
   gap: 12px;
 }
 
+.tab-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -388,6 +435,20 @@ watch(
   background: #f8fafc;
   display: grid;
   gap: 8px;
+}
+
+.empty-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.add-btn {
+  white-space: nowrap;
 }
 
 .inline-inputs {
@@ -539,6 +600,44 @@ input[type="checkbox"] {
   color: #0f172a;
   cursor: pointer;
   font-size: 14px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 30;
+}
+
+.modal {
+  width: min(500px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+  display: grid;
+  gap: 10px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.modal-head h3 {
+  margin: 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .link {
