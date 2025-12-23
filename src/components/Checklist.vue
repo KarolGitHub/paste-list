@@ -626,6 +626,7 @@ textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
+  margin-bottom: 10px;
   padding: 10px 12px;
   font: inherit;
   background: #fff;
