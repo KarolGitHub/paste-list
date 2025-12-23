@@ -14,6 +14,7 @@
 
 ## Features
 
+- Manage multiple checklists with custom titles
 - Paste a list of items (each line becomes a separate item)
 - Interactive checkboxes for each item
 - Mark items as done
