@@ -13,11 +13,15 @@
             </button>
           </div>
         </div>
-        <button class="btn primary add-btn" type="button" @click="openModal">New checklist</button>
+        <button class="btn primary add-btn" type="button" aria-label="New checklist" @click="openModal">
+          New checklist
+        </button>
       </div>
       <div v-else class="empty-bar">
         <p>No checklists yet.</p>
-        <button class="btn primary add-btn" type="button" @click="openModal">Create one</button>
+        <button class="btn primary add-btn" type="button" aria-label="Create checklist" @click="openModal">
+          Create one
+        </button>
       </div>
     </div>
 
@@ -451,6 +455,10 @@ watch(
   white-space: nowrap;
 }
 
+.add-btn::after {
+  content: "";
+}
+
 .inline-inputs {
   display: flex;
   align-items: center;
@@ -665,6 +673,38 @@ input[type="checkbox"] {
 
   .row {
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .tab-bar {
+    gap: 8px;
+  }
+
+  .add-btn {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 0 14px 30px rgba(37, 99, 235, 0.35);
+    z-index: 40;
+    font-size: 0;
+    line-height: 1;
+  }
+
+  .add-btn::after {
+    content: "+";
+    font-size: 28px;
+  }
+
+  .add-btn {
+    color: white;
   }
 }
 </style>
