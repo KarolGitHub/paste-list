@@ -96,9 +96,14 @@
             <p class="count">{{ completedCount }} done</p>
             <p class="count subtle">{{ remainingCount }} remaining</p>
           </div>
-          <button class="link" type="button" @click="toggleAll(false)">
-            Uncheck all
-          </button>
+          <div class="summary-actions">
+            <button class="link" type="button" :disabled="!hasUndo" @click="undoLastAction">
+              Undo
+            </button>
+            <button class="link" type="button" @click="toggleAll(false)">
+              Uncheck all
+            </button>
+          </div>
         </div>
 
         <ul class="list" role="list">
@@ -147,6 +152,8 @@ const fileInputRef = ref(null);
 const dragSourceId = ref(null);
 const dropTargetId = ref(null);
 const touchDragId = ref(null);
+const actionStack = ref([]);
+const ACTION_LIMIT = 10;
 const activeId = ref(null);
 
 const newTitle = ref("");
@@ -209,6 +216,14 @@ const activeTitle = computed({
 });
 
 const doneCount = (list) => list.items.filter((item) => item.done).length;
+const hasUndo = computed(() => actionStack.value.length > 0);
+
+const pushAction = (action) => {
+  actionStack.value = [...actionStack.value.slice(-(ACTION_LIMIT - 1)), action];
+};
+
+const cloneItems = (itemsToClone) =>
+  itemsToClone.map((item) => ({ ...item }));
 
 const scrollToActive = () => {
   nextTick(() => {
@@ -272,7 +287,24 @@ const addItems = () => {
     done: false,
   }));
 
-  updateChecklist(activeChecklist.value.id, (list) => ({
+  const targetId = activeChecklist.value.id;
+  const newCount = newItems.length;
+
+  if (newCount === 1) {
+    pushAction({
+      type: "add",
+      checklistId: targetId,
+      itemId: newItems[0].id,
+    });
+  } else {
+    pushAction({
+      type: "snapshot",
+      checklistId: targetId,
+      items: cloneItems(activeChecklist.value.items),
+    });
+  }
+
+  updateChecklist(targetId, (list) => ({
     ...list,
     items: [...list.items, ...newItems],
   }));
@@ -308,7 +340,24 @@ const importFromFile = (event) => {
       done: false,
     }));
 
-    updateChecklist(activeChecklist.value.id, (list) => ({
+    const targetId = activeChecklist.value.id;
+    const newCount = newItems.length;
+
+    if (newCount === 1) {
+      pushAction({
+        type: "add",
+        checklistId: targetId,
+        itemId: newItems[0].id,
+      });
+    } else {
+      pushAction({
+        type: "snapshot",
+        checklistId: targetId,
+        items: cloneItems(activeChecklist.value.items),
+      });
+    }
+
+    updateChecklist(targetId, (list) => ({
       ...list,
       items: [...list.items, ...newItems],
     }));
@@ -325,6 +374,14 @@ const importFromFile = (event) => {
 
 const toggleItem = (id) => {
   if (!activeChecklist.value) return;
+  const current = activeChecklist.value.items.find((item) => item.id === id);
+  if (!current) return;
+  pushAction({
+    type: "toggle",
+    checklistId: activeChecklist.value.id,
+    itemId: id,
+    prevDone: current.done,
+  });
   updateChecklist(activeChecklist.value.id, (list) => ({
     ...list,
     items: list.items.map((item) =>
@@ -335,6 +392,16 @@ const toggleItem = (id) => {
 
 const removeItem = (id) => {
   if (!activeChecklist.value) return;
+  const list = activeChecklist.value.items;
+  const index = list.findIndex((item) => item.id === id);
+  if (index === -1) return;
+  const removed = list[index];
+  pushAction({
+    type: "remove",
+    checklistId: activeChecklist.value.id,
+    item: { ...removed },
+    index,
+  });
   updateChecklist(activeChecklist.value.id, (list) => ({
     ...list,
     items: list.items.filter((item) => item.id !== id),
@@ -343,6 +410,11 @@ const removeItem = (id) => {
 
 const toggleAll = (state) => {
   if (!activeChecklist.value) return;
+  pushAction({
+    type: "snapshot",
+    checklistId: activeChecklist.value.id,
+    items: cloneItems(activeChecklist.value.items),
+  });
   updateChecklist(activeChecklist.value.id, (list) => ({
     ...list,
     items: list.items.map((item) => ({ ...item, done: state })),
@@ -351,6 +423,12 @@ const toggleAll = (state) => {
 
 const clearAll = () => {
   if (!activeChecklist.value) return;
+  if (!activeChecklist.value.items.length) return;
+  pushAction({
+    type: "snapshot",
+    checklistId: activeChecklist.value.id,
+    items: cloneItems(activeChecklist.value.items),
+  });
   updateChecklist(activeChecklist.value.id, (list) => ({
     ...list,
     items: [],
@@ -371,6 +449,12 @@ const reorderItems = (sourceId, targetId) => {
   const from = list.findIndex((item) => item.id === sourceId);
   const to = list.findIndex((item) => item.id === targetId);
   if (from === -1 || to === -1) return;
+
+  pushAction({
+    type: "snapshot",
+    checklistId: activeChecklist.value.id,
+    items: cloneItems(list),
+  });
 
   const next = [...list];
   const [moved] = next.splice(from, 1);
@@ -440,6 +524,51 @@ const finishDrop = (id) => {
 const cancelDrag = () => {
   dragSourceId.value = null;
   dropTargetId.value = null;
+};
+
+const undoLastAction = () => {
+  const action = actionStack.value[actionStack.value.length - 1];
+  if (!action) return;
+  actionStack.value = actionStack.value.slice(0, -1);
+
+  const checklist = checklists.value.find(
+    (list) => list.id === action.checklistId
+  );
+  if (!checklist) return;
+
+  if (action.type === "snapshot") {
+    updateChecklist(action.checklistId, (list) => ({
+      ...list,
+      items: cloneItems(action.items),
+    }));
+    return;
+  }
+
+  if (action.type === "add") {
+    updateChecklist(action.checklistId, (list) => ({
+      ...list,
+      items: list.items.filter((item) => item.id !== action.itemId),
+    }));
+    return;
+  }
+
+  if (action.type === "remove") {
+    updateChecklist(action.checklistId, (list) => {
+      const next = [...list.items];
+      next.splice(action.index, 0, action.item);
+      return { ...list, items: next };
+    });
+    return;
+  }
+
+  if (action.type === "toggle") {
+    updateChecklist(action.checklistId, (list) => ({
+      ...list,
+      items: list.items.map((item) =>
+        item.id === action.itemId ? { ...item, done: action.prevDone } : item
+      ),
+    }));
+  }
 };
 
 const ensureDefault = () => {
@@ -692,6 +821,11 @@ textarea {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.summary-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .count {
